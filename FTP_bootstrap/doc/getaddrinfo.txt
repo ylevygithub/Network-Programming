@@ -1,0 +1,262 @@
+getaddrinfo, freeaddrinfo, gai_strerror - Traduction d'adresses et de services réseau  
+    #include <netdb.h>
+
+int getaddrinfo(const char *node, const char *service,
+                const struct addrinfo *hints,
+                struct addrinfo **res);
+
+void freeaddrinfo(struct addrinfo *res);
+
+const char *gai_strerror(int errcode);
+
+Étant donné node et service, qui identifie un hôte Internet et un service, getaddrinfo() renvoie une ou plusieurs structures
+addrinfo, chacune d'entre elles contenant une adresse Internet qui puisse être indiquée dans un appel à bind(2) ou connect(2).
+
+struct addrinfo {
+    int              ai_flags;
+    int              ai_family;
+    int              ai_socktype;
+    int              ai_protocol;
+    size_t           ai_addrlen;
+    struct sockaddr *ai_addr;
+    char            *ai_canonname;
+    struct addrinfo *ai_next;
+};
+L'argument hints pointe sur une structure addrinfo qui spécifie les critères de sélection des structures d'adresses de sockets 
+renvoyée dans la liste pointé par res. Si hints n'est pas NULL, il doit pointer sur une structure addrinfo dont les membres 
+ai_family, ai_socktype, et ai_protocol indiquent les critères limitant l'ensemble d'adresses de sockets renvoyées par getaddrinfo(), de la façon suivante :
+
+ai_family
+    Les valeurs valides : AF_INET et AF_INET6. AF_UNSPEC indique que getaddrinfo() doit renvoyer les adresses de socket de
+    n'importe quelle famille d'adresses (par exemple, IPv4 ou IPv6) pouvant être utilisées avec node et service.
+ai_socktype
+    SOCK_STREAM ou SOCK_DGRAM. Mettre 0 indique que getaddrinfo() peut renvoyer n'importe quel type d'adresses de socket.
+ai_protocol
+    Mettre 0 dans ce champ indique que getaddrinfo() peut renvoyer des adresses de socket de n'importe quel type.
+ai_flags
+    Ce champ indique des options supplémentaires, décrites plus loin. Divers attributs sont regroupés par un OU binaire.
+Tous les autres membres de la structure pointée par hints doivent contenir 0 ou être des pointeurs NULL. Spécifier hints à NULL
+est équivalent à définir ai_socktype et ai_protocol à 0, ai_family à AF_UNSPEC et ai_flags à (AI_V4MAPPED | AI_ADDRCONFIG).
+
+NODE indique soit une adresse réseau en format numérique (décimal pointé pour l'IPv4, comme prise en charge par inet_aton(3);
+    hexadécimal pour l'IPv6, inet_pton(3)), soit un nom d'hôte, dont l'adresse réseau est alors résolue.
+    Si hints.ai_flags contient l'attribut AI_NUMERICHOST, alors node devra être une adresse réseau numérique.
+    L'attribut AI_NUMERICHOST empêche toute tentative - éventuellement longue - de résolution de nom d'hôte.
+    Nous on va mettre : hints.ai_flags = AI_PASSIVE && node = NULL
+
+Si l'attribut AI_PASSIVE est indiqué dans hints.ai_flags, et si node est NULL, les adresses de socket renvoyées seront
+pertinentes pour lier (bind(2)) un socket qui acceptera (accept(2)) les connexions. Les adresses de socket renvoyées 
+contiendront l'« adresse joker » (wildcard adress) (INADDR_ANY pour les adresses IPv4, IN6ADDR_ANY_INIT pour les adresses IPv6).
+L'« adresse joker » est utilisée par des applications (typiquement des serveurs) qui ont l'intention d'accepter des connexions
+de n'importe quel hôte. Si node n'est pas NULL, l'attribut AI_PASSIVE est ignoré.
+
+Si l'attribut AI_PASSIVE n'est pas positionné dans hints.ai_flags, les adresses de socket renvoyées seront pertinentes pour
+être utilisées avec then the returned socket addresses will be suitable for use with connect(2), sendto(2) ou sendmsg(2).
+Si node est NULL, l'adresse réseau sera définie avec l'adresse de l'interface de boucle (loopback) (INADDR_LOOPBACK pour les 
+adresses IPv4, IN6ADDR_LOOPBACK_INIT pour les adresses IPv6) ; cela est utilisé par les applications qui doivent communiquer
+avec des correspondants s'exécutant sur la même machine.
+
+SERVICE définit le port dans chacune des structures d'adresses renvoyées. Si cet argument est un nom de service
+(voir services(5)), il est traduit en son numéro de port correspondant. Cet argument peut également être indiqué sous forme
+décimale, qui est simplement converti en binaire. Si service est NULL, le numéro de port des adresses de socket renvoyés
+n'est pas initialisé. Si AI_NUMERICSERV est indiqué dans hints.ai_flags et si service n'est pas NULL, service doit pointer
+vers une chaîne contenant une valeur numérique de port. Cet attribut est utilisé pour inhiber l'invocation du service de
+résolution des noms dans les cas où l'on sait qu'il n'est pas nécessaire.
+
+Soit NODE soit SERVICE, mais pas les deux à la fois, peut être NULL.
+
+getaddrinfo() alloue et initialise une liste chaînée de structures addrinfo, une pour chaque adresse réseau
+correspondant à node et service, et renvoie dans RES un pointeur sur le début de la liste. Les éléments de la liste chaînée
+sont chaînés par ai_next. La raison pour laquel la liste chaînée peut avoir plus d'une structure addrinfo : l'hôte réseau est 
+« multi-homed » ; le même service est disponible à partir de plusieurs protocoles de socket (exemple, un est d'adresse 
+SOCK_STREAM et l'autre d'adresse SOCK_DGRAM).
+
+on s en fout////Si hints.ai_flags = AI_CANONNAME, le champ ai_canonname de la première structure addrinfo de la liste renvoyée est
+défini pour pointer vers le nom officiel de l'hôte.
+
+La fonction freeaddrinfo() libère la mémoire qui a été allouée dynamiquement pour la liste chaînée res.
+
+RETURN_VALUE
+    getaddrinfo() renvoie 0 si elle réussit, ou l'un des codes d'erreur non nuls suivants :
+    ....
+La fonction gai_strerror() traduit ces codes d'erreur en une chaîne de caractères compréhensible.
+int fd =  getaddrinfo(NULL, argv[1], &hints, &result);
+if (fd != 0) {
+    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(fd));
+    exit(EXIT_FAILURE);
+}
+
+/*****************************BIG EXEMPLE******************************************/
+
+Voici le serveur :
+
+#include <sys/types.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netdb.h>
+
+#define BUF_SIZE 500
+
+int main(int argc, char **argv)
+{
+    struct addrinfo hints;
+    struct addrinfo *result, *rp;
+    int sfd, s;
+    struct sockaddr_storage peer_addr;
+    socklen_t peer_addr_len;
+    ssize_t nread;
+    char buf[BUF_SIZE];
+
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s port\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
+    hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
+    hints.ai_flags = AI_PASSIVE;    /* For wildcard IP address */
+    hints.ai_protocol = 0;          /* Any protocol */
+    hints.ai_canonname = NULL;
+    hints.ai_addr = NULL;
+    hints.ai_next = NULL;
+
+    s = getaddrinfo(NULL, argv[1], &hints, &result);
+    if (s != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
+        exit(EXIT_FAILURE);
+    }
+
+    /* getaddrinfo() returns a list of address structures.
+       Try each address until we successfully bind(2).
+       If socket() (or bind()) fails, we (close the socket
+       and) try the next address. */
+
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+        sfd = socket(rp->ai_family, rp->ai_socktype,
+                rp->ai_protocol);
+        if (sfd == -1)
+            continue;
+        if (bind(sfd, rp->ai_addr, rp->ai_addrlen) == 0)
+            break;                  /* Success */
+        close(sfd);
+    }
+    if (rp == NULL) {               /* No address succeeded */
+        fprintf(stderr, "Could not bind\n");
+        exit(EXIT_FAILURE);
+    }
+    freeaddrinfo(result);           /* No longer needed */
+
+    /* Read datagrams and echo them back to sender */
+
+    for (;;) {
+        peer_addr_len = sizeof(struct sockaddr_storage);
+        nread = recvfrom(sfd, buf, BUF_SIZE, 0,
+                (struct sockaddr *) &peer_addr, &peer_addr_len);
+        if (nread == -1)
+            continue;               /* Ignore failed request */
+
+        char host[NI_MAXHOST], service[NI_MAXSERV];
+
+        s = getnameinfo((struct sockaddr *) &peer_addr,
+                        peer_addr_len, host, NI_MAXHOST,
+                        service, NI_MAXSERV, NI_NUMERICSERV);
+       if (s == 0)
+            printf("Received %ld bytes from %s:%s\n",
+                    (long) nread, host, service);
+        else
+            fprintf(stderr, "getnameinfo: %s\n", gai_strerror(s));
+
+        if (sendto(sfd, buf, nread, 0,
+                    (struct sockaddr *) &peer_addr,
+                    peer_addr_len) != nread)
+            fprintf(stderr, "Error sending response\n");
+    }
+}
+
+Voici le client :
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+
+#define BUF_SIZE 500
+
+int main(int argc, char **argv)
+{
+    struct addrinfo hints;
+    struct addrinfo *result, *rp;
+    int sfd, s, j;
+    size_t len;
+    ssize_t nread;
+    char buf[BUF_SIZE];
+
+    if (argc < 3) {
+        fprintf(stderr, "Usage: %s host port msg...\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    /* Obtain address(es) matching host/port */
+
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
+    hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
+    hints.ai_flags = 0;
+    hints.ai_protocol = 0;          /* Any protocol */
+
+    s = getaddrinfo(argv[1], argv[2], &hints, &result);
+    if (s != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
+        exit(EXIT_FAILURE);
+    }
+
+    /* getaddrinfo() returns a list of address structures.
+       Try each address until we successfully connect(2).
+       If socket(2) (or connect(2)) fails, we (close the socket
+       and) try the next address. */
+
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+        sfd = socket(rp->ai_family, rp->ai_socktype,
+                     rp->ai_protocol);
+        if (sfd == -1)
+            continue;
+        if (connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1)
+            break;                  /* Success */
+        close(sfd);
+    }
+    if (rp == NULL) {               /* No address succeeded */
+        fprintf(stderr, "Could not connect\n");
+        exit(EXIT_FAILURE);
+    }
+    freeaddrinfo(result);           /* No longer needed */
+
+    /* Send remaining command-line arguments as separate
+       datagrams, and read responses from server */
+
+    for (j = 3; j < argc; j++) {
+        len = strlen(argv[j]) + 1;
+                /* +1 for terminating null byte */
+        if (len + 1 > BUF_SIZE) {
+            fprintf(stderr,
+                    "Ignoring long message in argument %d\n", j);
+            continue;
+        }
+        if (write(sfd, argv[j], len) != len) {
+            fprintf(stderr, "partial/failed write\n");
+            exit(EXIT_FAILURE);
+        }
+        nread = read(sfd, buf, BUF_SIZE);
+        if (nread == -1) {
+            perror("read");
+            exit(EXIT_FAILURE);
+        }
+        printf("Received %ld bytes: %s\n", (long) nread, buf);
+    }
+    exit(EXIT_SUCCESS);
+}

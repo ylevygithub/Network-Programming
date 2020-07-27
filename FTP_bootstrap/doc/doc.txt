@@ -1,0 +1,105 @@
+/*****************TCP****************/
+
+Le TCP, pour Transmission Control Protocol, ou littéralement protocole de contrôle de transmissions en français, désigne un protocole de transmission utilisé sur les réseaux IP. Il est, dans le modèle Internet, rarement cité seul, mais bien souvent en compagnie de l'acronyme IP pour former la suite de protocoles TCP/IP.
+
+Il est basé sur un fonctionnement en trois temps. Il établit d'abord une connexion, transfère ensuite les données, et met enfin un terme à la connexion. Toutes ces opérations sont réalisées dans un environnement sécurisé, fiable et robuste, notamment grâce à l'utilisation de systèmes de séquençage.
+
+En gros : Le protocole de contrôle de transmissions permet d'établir une connexion et de transmettre des données.
+
+/***************IPv4****************/
+
+IPv4 (Internet Protocol version 4) est la première version d'Internet Protocol (IP) à avoir été largement déployée, et qui forme encore en 2020 la base de la majorité des communications sur Internet, par rapport à l'IPv6.
+
+Chaque interface d'un hôte IPv4 se voit attribuer une ou plusieurs adresses IP codées sur 32 bits.
+
+Une adresse IPv4 est représentée sous la forme de quatre nombres entiers séparés par des points comme 193.43.55.67 Chacun des nombres représente un octet. La plage d'attribution s'étend de 0.0.0.0 à 255.255.255.255
+
+For example : if we have a network ID : 192.168.1.0 we have an invisible suit which is the CIDR notation wich is /24 who gives us the Subnet Mask: 255.255.255.0
+So if we know that our Subnet Mask is 255.255.255.0, we know that our CIDR is 8*3 = /24. Its simple as that.
+
+Mtnt si notre mask = 255.255.248.0 ce qui nous donne /21
+Et que notre adresse IP est : 192.168.45.55 - What is the Network ID ?
+Nos 2 premiers octets sont full (255), du coup nous passons a notre 3e octet qui est 45 et 248.
+ 45 donne 00101101 : le 101 a la fin sont les host bits qui n ont rien a voir avec le network ID
+248 donne 11111000
+Donc ce qui nous interresse sont les 5 premiers digits qui sont 00101 sachant que dans notre table nous avons 128 64 32 16 8 4 2 1
+128 est a 0, 64 est a 0, 32 est a 1, 16 est a 0, 8 est a 1 et le reste sont des host bits donc on s en fout. Ce qui nous donne 32 + 8 = 40.
+Ce qui nous donne 40 pour notre 3e octet du Network ID : 192.168.40
+Ensuite pour notre 4e octet nous avons d une part 55 et d autre part 0. Ayant 0 d un des deux coté, cela nous facilite la tache et nous donne 0 au 4e octet du NetworkID
+Nous avons enfin trouvé le Network ID : 192.168.40.0/21
+
+Prenons un deuxieme exemple. Mask = 255.255.255.192 ce qui nous donne /26
+Adresse IP : 192.168.45.55 - What is the Network ID ?
+Nos 3 premiers octets sont full (255), du coup nous passons a notre 4e octet qui sont 55 et 192.
+ 55 donne 00110111 : le 110111 a la fin sont les host bits.
+192 donne 11000000
+Donc ce qui nous interresse sont les 2 premiers digits qui sont 00 (subneting bits)
+128 est a 0, 64 est a 0 et le reste sont des host bits donc on s en fout. Ce qui nous donne 0 + 0 = 0.
+Ce qui nous donne 0 pour notre 4e octet du Network ID : 192.168.45.0/26
+
+Mtnt si nous voulons recuperer le Broadcast adresse dans notre dernier exemple : Je rappel que
+ 55 donne 00110111 : le 110111 a la fin sont les host bits.
+192 donne 11000000 : le 000000 a la fin sont les host bits.
+Nous allons recuperer notre adresse broadcast grace a nos emplacement host bits qui vont de 32 a 1 bits. nous devons faire comme s ils etaient actifs ce qui nous donne 63.
+Ce qui nous donne 63 pour notre 4e octet du Broadcast : 192.168.45.63
+
+On peut aussi récuperer le nombre de hosts IP adresses qu on peut avoir (nombre d adresses IP utilisables) : Pour cela on soustrait 63 - 1 = 62.
+Donc nous savons que nous avons un total de 62 adresses disponibles dans ce network(reseau), 62 hosts.
+On a le notre pour le routeur. Ce qui nous laisse 61 pour les autres.
+
+/***********IPv4 classes***********/
+
+Class            1st octet range    Default Mask
+
+ClassA           1-126              255.0.0.0
+ClassB           128-191            255.255.0.0
+ClassC           192-223            255.255.255.0
+A B and C are the only ones that we can subnet.
+
+D and E wont ever be subnetting with anything that starts with these numbers.
+ClassD           224-239            Multicasting (that is used a lot in networking like with streaming videos)
+ClassE           240-255            Experimental research
+
+Loopback         127 (Is just pinging ourselves)
+
+
+/***************RFC****************/
+
+Les requests for comments (RFC), littéralement « demande de commentaires », sont une série numérotée de documents officiels décrivant les aspects et spécifications techniques d'Internet, ou de différents matériels informatiques (routeurs, serveur DHCP).
+
+/************Socket****************/
+socket = Creer un point de communication
+
+#include <sys/types.h>
+#include <sys/socket.h>
+int socket(int domain, int type, int protocol);
+
+socket() crée un point de communication, et renvoie un descripteur.
+
+/******************ip(7) - Implémentation Linux du protocole IPv4*********************************/
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+
+tcp_socket = socket(PF_INET, SOCK_STREAM, 0);
+Les seules valeurs valides pour le protocole sont 0 et IPPROTO_TCP pour les sockets TCP
+
+/*******************************Bind************************************/
+bind = Fournir un nom a une socket
+
+#include <sys/types.h>
+#include <sys/socket.h>
+
+int bind(int sockfd, const struct sockaddr *addr,
+         socklen_t addrlen);
+
+/*******************************htons**********************************/
+Conversions d'ordre des octets entre un hôte et un réseau
+
+#include <arpa/inet.h>
+
+uint16_t htons(uint16_t hostshort);
+
+La fonction htons() convertit un entier court non signé hostshort depuis l'ordre des octets de l'hôte vers celui du réseau.
+Sur les i386, l'ordre des octets de l'hôte est LSB (« Least Significant Byte first»), c'est-à-dire octet de poids faible en premier, alors que sur les réseaux, notamment l'Internet, l'ordre est MSB (« Most Significant Byte first ») octet de poids fort en premier.

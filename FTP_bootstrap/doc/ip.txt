@@ -1,0 +1,31 @@
+/******************ip(7) - Implémentation Linux du protocole IPv4*********************************/
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+
+tcp_socket = socket(PF_INET, SOCK_STREAM, 0);
+Les seules valeurs valides pour le protocole sont 0 et IPPROTO_TCP pour les sockets TCP
+
+Lorsqu'un processus veut recevoir de nouveaux paquets entrants ou connexions, il doit attacher une socket à une adresse d'interface locale en utilisant bind(2).
+Une seule socket IP peut être attachée à une paire (adresse, port) locale donnée.
+
+struct sockaddr_in {
+    sa_family_t    sin_family; /* famille d'adresses : AF_INET     */
+    uint16_t       sin_port;   /* port dans l'ordre d'octets réseau */
+    struct in_addr sin_addr;   /* adresse Internet                  */
+};
+
+/* Adresse Internet */
+struct in_addr {
+    uint32_t       s_addr;     /* Adresse dans l'ordre d'octets réseau */
+};
+    sin_family est toujours rempli avec AF_INET.
+    sin_port contient le numéro de port.
+Les numéros de ports inférieures à 1024 sont dits réservés. Seuls les processus privilégiés (CAP_NET_BIND_SERVICE) peuvent appeler bind(2) pour ces ports. Notez que le prot\
+ocole IPv4 en tant que tel n'a pas de concept de ports, ils sont seulement implémentés par des protocoles de plus haut-niveau comme tcp(7) et udp(7).
+    sin_addr est l'adresse IP de l'hôte. le membre s_addr de la structure struct in_addr contient l'adresse de l'interface de l'hôte, dans l'ordre des octets du réseau.
+Remarquez que l'adresse et le port sont toujours stockés dans l'ordre des octets du réseau. Cela signifie qu'il faut invoquer htons(3) sur le numéro attribué à un port. Tou\
+tes les fonctions de manipulation d'adresse et port de la bibliothèque standard fonctionne dans l'ordre du réseau.
+Il existe plusieurs adresses particulières : INADDR_LOOPBACK (127.0.0.1) correspond toujours à l'hôte local via le périphérique loopback ; INADDR_ANY (0.0.0.0) signifie un \
+attachement à n'importe quelle adresse ; INADDR_BROADCAST (255.255.255.255) signifie n'importe quel hôte et à le même effet que INADDR_ANY pour des raisons historiques.

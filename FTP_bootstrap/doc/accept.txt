@@ -1,0 +1,17 @@
+int accept(int sockfd, struct sockaddr *adresse, socklen_t *longueur);
+
+L'appel système accept() est employé avec les sockets utilisant un protocole en mode connecté (SOCK_STREAM et SOCK_SEQPACKET).
+    Il extrait la première connexion de la file des connexions en attente de la socket sockfd à l'écoute, crée une 
+    nouvelle socket connectée, et renvoie un nouveau descripteur de fichier qui fait référence à cette socket. La nouvelle 
+    socket n'est pas en état d'écoute. La socket originale sockfd n'est pas modifiée par l'appel système.
+L'argument sockfd est une socket qui a été créée avec la fonction socket(2), attachée à une adresse avec bind(2), et attend 
+    des connextions après un appel listen(2).
+
+L'argument adresse est un pointeur sur une structure sockaddr. La structure sera remplie avec l'adresse du correspondant se 
+    connectant, telle qu'elle est connue par la couche de communication. Le format exact du paramètre adresse dépend du 
+    domaine dans lequel la communication s'établit (voir socket(2) et la page de manuel correspondant au protocole).
+L'argument longueur est un paramètre-résultat : il doit contenir initialement la taille de la structure pointée par adresse, 
+    et est renseigné au retour par la longueur réelle (en octet) de l'adresse remplie. Quand adresse vaut NULL, 
+    rien n'est rempli.
+RETURN_VALUE
+    S'il réussit, accept() renvoie un entier non négatif, constituant un descripteur pour la nouvelle socket. S'il échoue, -1.

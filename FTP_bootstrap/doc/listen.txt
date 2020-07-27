@@ -1,0 +1,20 @@
+int listen(int sockfd, int backlog);
+
+listen() marque la socket référencée par sockfd comme une socket passive, c'est-à-dire comme une socket qui sera utilisée pour accepter les demandes de connexions entrantes en utilisant accept(2).
+L'argument sockfd est un descripteur de fichier qui fait référence à une socket de type SOCK_STREAM ou SOCK_SEQPACKET.
+
+L'argument backlog définit une longueur maximale jusqu'à laquelle la file des connexions en attente pour sockfd
+peut croître. Si une nouvelle connexion arrive alors que la file est pleine, le client reçoit une erreur indiquant ECONNREFUSED,
+ou, si le protocole sous-jacent supporte les retransmissions, la requête peut être ignorée afin qu'un nouvel essai réussisse.
+
+RETURN_VALUE
+    Renvoie 0 si il réussit, ou -1 en cas d'échec.
+Pour accepter des connexions, les étapes suivantes sont effectuées :
+1.
+    Une socket est créée avec socket(2).
+2.
+    La socket est limitée à une adresse locale avec bind(2), ainsi d'autres sockets peuvent y être connect(2)ées.
+3.
+    La volonté d'accepter des connexions entrantes et une limite de file pour les connexions entrantes sont spécifiées avec listen().
+4.
+    Les connexions sont acceptées avec accept(2).

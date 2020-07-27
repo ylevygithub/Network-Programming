@@ -1,0 +1,80 @@
+bind = Fournir un nom a une socket
+
+#include <sys/types.h>
+#include <sys/socket.h>
+
+int bind(int sockfd, const struct sockaddr *addr,
+         socklen_t addrlen);
+
+Quand une socket est créée avec l'appel système socket(2), elle existe dans l'espace des noms mais n'a pas de nom assigné). bind() affecte l'adresse spécifiée dans addr à l\
+a socket référencée par le descripteur de fichier sockfd. addrlen indique la taille, en octets, de la structure d'adresse pointée par addr. Traditionnellement cette opérati\
+on est appelée « affectation d'un nom à une socket ».
+Il est normalement nécessaire d'affecter une adresse locale avec bind() avant qu'une socket SOCK_STREAM puisse recevoir des connexions (voir accept(2)).
+
+Les règles d'affectation de nom varient suivant le domaine de communication. Consultez les pages de manuel Linux de la section 7 pour de plus amples informations. Pour AF_I\
+NET voir ip(7)
+La structure réellement passée comme argument addr dépendra de la famille d'adresses. La définition de la structure sockaddr est quelque chose comme :
+
+
+struct sockaddr {
+    sa_family_t sa_family;
+    char        sa_data[14];
+}
+
+Le seul objet de cette structure est de transtyper le pointeur structure passé dans addr afin d'éviter les avertissements à la compilation. Voir EXEMPLE plus loin.
+
+
+
+Un exemple de l'utilisation de bind() avec les sockets de domaine Internet peut être trouvé dans getaddrinfo(3).
+L'exemple suivant montre comment attacher une socket de domaine Unix (AF_UNIX), et accepter les connexions :
+
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+#define MY_SOCK_PATH "/unchemin"
+#define LISTEN_BACKLOG 50
+
+#define handle_error(msg) \
+    do { perror(msg); exit(EXIT_FAILURE); } while (0)
+
+int
+main(int argc, char *argv[])
+{
+    int sfd, cfd;
+    struct sockaddr_un my_addr, peer_addr;
+    socklen_t peer_addr_size;
+
+    sfd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (sfd == -1)
+        handle_error("socket");
+
+    memset(&my_addr, 0, sizeof(struct sockaddr_un));
+                        /* Efface la structure */
+    my_addr.sun_family = AF_UNIX;
+    strncpy(my_addr.sun_path, MY_SOCK_PATH,
+            sizeof(my_addr.sun_path) - 1);
+
+    if (bind(sfd, (struct sockaddr *) &my_addr,
+            sizeof(struct sockaddr_un)) == -1)
+        handle_error("bind");
+
+    if (listen(sfd, LISTEN_BACKLOG) == -1)
+        handle_error("listen");
+
+    /* Nous pouvons maintenant accepter une connexion
+       entrante à la fois grâce à accept(2) */
+
+    peer_addr_size = sizeof(struct sockaddr_un);
+    cfd = accept(sfd, (struct sockaddr *) &peer_addr,
+                 &peer_addr_size);
+    if (cfd == -1)
+        handle_error("accept");
+
+    /* Code pour gérer la (les) connexion(s) entrante(s)... */
+
+    /* Lorsqu'il n'est plus nécessaire, le chemin de la socket,
+       MY_SOCK_PATH, doit être supprimé avec unlink(2) ou remove(3) */
+}

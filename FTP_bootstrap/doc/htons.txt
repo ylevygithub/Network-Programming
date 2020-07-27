@@ -1,0 +1,11 @@
+/*******************************htons**********************************/
+Conversions d'ordre des octets entre un hôte et un réseau
+
+#include <arpa/inet.h>
+
+uint16_t htons(uint16_t hostshort);
+
+La fonction htons() convertit un entier court non signé hostshort depuis l'ordre des octets de l'hôte vers celui du réseau.
+Sur les i386, l'ordre des octets de l'hôte est LSB (« Least Significant Byte first»), c'est-à-dire octet de poids faible en premier, alors que sur les réseaux, notamment l'\
+Internet, l'ordre est MSB (« Most Significant Byte first ») octet de poids fort en premier.	
+
